@@ -1,0 +1,2547 @@
+<!-- AI生成 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbus RTU Host · ST-605 · v02</title>
+<style>
+:root {
+  --bg: #0f1419;
+  --bg2: #161c24;
+  --bg3: #1c2430;
+  --border: #2a3544;
+  --ink: #e6edf5;
+  --muted: #8b9bb0;
+  --accent: #3d9cf0;
+  --accent2: #2dd4a8;
+  --warn: #f0b429;
+  --err: #f07178;
+  --ok: #7fd962;
+  --row-h: 28px;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "Cascadia Code", "Consolas", "SF Mono", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  overflow: hidden;
+}
+button, input, select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  outline: none;
+}
+button { cursor: pointer; white-space: nowrap; }
+button:hover { border-color: var(--accent); background: #243044; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #5aaff5; }
+button.danger { border-color: var(--err); color: var(--err); }
+button.danger:hover { background: #3a2228; }
+button.ghost { background: transparent; }
+input[type="text"], input[type="number"], select {
+  min-width: 0;
+  background: var(--bg2);
+}
+input[type="number"] { width: 72px; }
+input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; }
+label.inline { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12px; }
+
+/* ── layout ── */
+#app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+#topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+#topbar .brand {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  margin-right: 4px;
+}
+#topbar .brand span { color: var(--accent); }
+#topbar .sep { width: 1px; height: 22px; background: var(--border); }
+#topbar .group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#topbar .group .lbl { color: var(--muted); font-size: 12px; }
+#statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+#statusPill .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted);
+}
+#statusPill.on .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+#statusPill.err .dot { background: var(--err); box-shadow: 0 0 6px var(--err); }
+
+#main {
+  display: grid;
+  grid-template-columns: minmax(420px, 48%) 1fr;
+  min-height: 0;
+}
+#left {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+#right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* ── register panel ── */
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.panel-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: auto;
+}
+#regWrap {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+#regTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+#regTable th, #regTable td {
+  border-bottom: 1px solid var(--border);
+  padding: 3px 4px;
+  text-align: left;
+  vertical-align: middle;
+}
+#regTable th {
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+  z-index: 2;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+#regTable tr:hover td { background: #1a2330; }
+#regTable input, #regTable select {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 3px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+#regTable .col-en { width: 32px; text-align: center; }
+#regTable .col-name { width: 13%; min-width: 72px; }
+#regTable .col-slave { width: 52px; }
+#regTable .col-fc { width: 58px; }
+#regTable .col-addr { width: 72px; }
+#regTable .col-type { width: 118px; }
+#regTable .col-sc { width: 54px; }
+#regTable .col-off { width: 54px; }
+#regTable .col-unit { width: 48px; }
+#regTable .col-val { width: 11%; min-width: 72px; }
+#regTable .col-q { width: 52px; }
+#regTable .col-w { width: 15%; min-width: 110px; }
+#regTable .col-act { width: 36px; text-align: center; }
+.q-good { color: var(--ok); }
+.q-timeout { color: var(--warn); }
+.q-ex { color: var(--err); }
+.q-none { color: var(--muted); }
+
+#pollBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+/* ── views ── */
+#viewToolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+#viewGrid {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  min-height: 0;
+  overflow: auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+#viewGrid.cols-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+#viewGrid.cols-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+#viewGrid.cols-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+.view {
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.view-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+  flex-wrap: wrap;
+}
+.view-head .title {
+  flex: 1;
+  min-width: 80px;
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  padding: 2px 4px;
+}
+.view-head .title:focus { background: var(--bg2); border-radius: 4px; }
+.view-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
+.view-body canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+.view-body.table-mode {
+  overflow: auto;
+  display: block;
+}
+.view-body table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.view-body table th, .view-body table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.view-body table th { color: var(--muted); font-weight: 500; font-size: 11px; }
+.view-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  pointer-events: none;
+}
+.channel-pop {
+  position: absolute;
+  top: 36px;
+  right: 8px;
+  width: 220px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.channel-pop label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 2px;
+  cursor: pointer;
+}
+
+/* ── log ── */
+#logPanel {
+  height: 140px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+}
+#logPanel.collapsed { height: 32px; }
+#logPanel.collapsed #logBody { display: none; }
+#logHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+#logBody {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.log-line { white-space: pre-wrap; word-break: break-all; }
+.log-line.tx { color: #7ec8ff; }
+.log-line.rx { color: var(--accent2); }
+.log-line.err { color: var(--err); }
+.log-line.warn { color: var(--warn); }
+.log-line.info { color: var(--muted); }
+
+/* ── modal ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.modal h3 { margin-bottom: 12px; font-size: 15px; }
+.modal .row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  align-items: center;
+}
+.modal textarea {
+  width: 100%;
+  height: 180px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  resize: vertical;
+}
+.modal .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.toast {
+  position: fixed;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 8px;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.hidden { display: none !important; }
+
+@media (max-width: 900px) {
+  #main { grid-template-columns: 1fr; grid-template-rows: 45% 1fr; }
+  #left { border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+<p data-aigc-mark="1" style="margin:0 0 8px;font-size:10px;line-height:1.3;color:#6b6560;font-weight:400;">AI生成</p>
+
+<div id="app">
+  <header id="topbar">
+    <div class="brand">Modbus RTU Host <span>· ST-605 · v02</span></div>
+    <div class="sep"></div>
+    <div class="group">
+      <button id="btnConnect" class="primary">连接串口</button>
+      <button id="btnDisconnect" disabled>断开</button>
+      <div id="statusPill"><div class="dot"></div><span id="statusText">未连接</span></div>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <span class="lbl">波特率</span>
+      <select id="selBaud">
+        <option>4800</option><option selected>9600</option><option>19200</option>
+        <option>38400</option><option>57600</option><option>115200</option>
+      </select>
+      <span class="lbl">数据位</span>
+      <select id="selData"><option selected>8</option></select>
+      <span class="lbl">校验</span>
+      <select id="selParity">
+        <option value="none">N</option>
+        <option value="odd">O</option>
+        <option value="even" selected>E</option>
+      </select>
+      <span class="lbl">停止位</span>
+      <select id="selStop"><option selected>1</option><option>2</option></select>
+      <span class="lbl">从站</span>
+      <input type="number" id="inpSlave" value="20" min="1" max="247" style="width:56px">
+      <label class="inline" title="勾选后表内地址按从 1 起算的文档/表地址填写，发帧时自动减 1 得到 PDU 地址（如填 48001 → 发 48000）">
+        <input type="checkbox" id="chkAddrFromOne"> 地址从 1 起
+      </label>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button id="btnExportData">导出数据</button>
+      <button id="btnExportJson">导出 JSON</button>
+      <button id="btnImportJson">导入 JSON</button>
+      <button id="btnResetCfg" class="danger">恢复默认</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <section id="left">
+      <div class="panel-head">
+        <h2>寄存器表</h2>
+        <button id="btnAddRow">添加行</button>
+        <button id="btnLoadPreset">ST-605 预设</button>
+        <button id="btnCsvImport">CSV 导入</button>
+        <button id="btnCsvExport">CSV 导出</button>
+        <button id="btnClearRows" class="danger">清空</button>
+      </div>
+      <div id="regWrap">
+        <table id="regTable">
+          <thead>
+            <tr>
+              <th class="col-en">启用</th>
+              <th class="col-name">名称</th>
+              <th class="col-slave">从站</th>
+              <th class="col-fc">FC</th>
+              <th class="col-addr" id="thAddr" title="PDU 地址；勾选「地址从 1 起」后按表地址填写">地址</th>
+              <th class="col-type">类型</th>
+              <th class="col-sc">缩放</th>
+              <th class="col-off">偏移</th>
+              <th class="col-unit">单位</th>
+              <th class="col-val">当前值</th>
+              <th class="col-q">质量</th>
+              <th class="col-w">写入值</th>
+              <th class="col-act"></th>
+            </tr>
+          </thead>
+          <tbody id="regBody"></tbody>
+        </table>
+      </div>
+      <div id="pollBar">
+        <button id="btnPollToggle" class="primary">开始轮询</button>
+        <button id="btnReadOnce">立即读</button>
+        <label class="inline">周期
+          <input type="number" id="inpInterval" value="500" min="100" max="10000" step="50" style="width:70px"> ms
+        </label>
+        <label class="inline">超时
+          <input type="number" id="inpTimeout" value="300" min="50" max="5000" step="50" style="width:70px"> ms
+        </label>
+        <label class="inline">重试
+          <input type="number" id="inpRetries" value="1" min="0" max="5" style="width:50px">
+        </label>
+        <label class="inline">历史
+          <input type="number" id="inpHistHours" value="2" min="0.5" max="8" step="0.5" style="width:56px"> h
+        </label>
+      </div>
+    </section>
+
+    <section id="right">
+      <div id="viewToolbar">
+        <h2 style="font-size:13px;font-weight:600;margin-right:auto">视图窗</h2>
+        <select id="selLayout">
+          <option value="1">1 格</option>
+          <option value="2">2 格</option>
+          <option value="4" selected>4 格</option>
+        </select>
+        <button id="btnAddView">+ 添加视图</button>
+        <span class="lbl" style="color:var(--muted);font-size:12px">最多 4 窗</span>
+      </div>
+      <div id="viewGrid" class="cols-4"></div>
+    </section>
+  </div>
+
+  <div id="logPanel">
+    <div id="logHead">
+      <strong style="color:var(--ink)">日志 / HEX</strong>
+      <button id="btnClearLog" class="ghost">清空</button>
+      <button id="btnToggleLog" class="ghost">折叠</button>
+      <span id="logStats" style="margin-left:auto"></span>
+    </div>
+    <div id="logBody"></div>
+  </div>
+</div>
+
+<input type="file" id="fileJson" accept=".json,application/json" class="hidden">
+<input type="file" id="fileCsv" accept=".csv,text/csv" class="hidden">
+
+<script>
+"use strict";
+
+/* ============================================================
+ * 0. 常量 / 默认配置
+ * ============================================================ */
+const STORAGE_KEY = "modbusRtuHost.config.v1";
+const TYPE_WORD = {
+  u16: 1, i16: 1,
+  u32: 2, i32: 2,
+  f32: 2, "f32-le-words": 2, "f32-be-words": 2,
+};
+const TYPES = Object.keys(TYPE_WORD);
+const CHART_COLORS = [
+  "#3d9cf0", "#2dd4a8", "#f0b429", "#f07178",
+  "#c792ea", "#82aaff", "#ffcb6b", "#6bdfff",
+];
+
+/** ST-605 预设（PDU 地址，与 regmap.csv 一致） */
+const ST605_PRESET = [
+  // 状态
+  { name: "runStatus",     slave: 20, fc: 3, addr: 41000, type: "u16", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "commStatus",    slave: 20, fc: 3, addr: 41001, type: "u16", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "calibStatus",   slave: 20, fc: 3, addr: 41002, type: "u16", scale: 1, offset: 0, unit: "", enabled: false },
+  { name: "configStatus",  slave: 20, fc: 3, addr: 41003, type: "u16", scale: 1, offset: 0, unit: "", enabled: false },
+  { name: "measureTarget", slave: 20, fc: 3, addr: 41039, type: "u16", scale: 1, offset: 0, unit: "", enabled: false },
+  // 通信
+  { name: "modbusAddr",    slave: 20, fc: 3, addr: 42000, type: "u16", scale: 1, offset: 0, unit: "", enabled: false },
+  { name: "modbusDatabits",slave: 20, fc: 3, addr: 42001, type: "u16", scale: 1, offset: 0, unit: "bit", enabled: false },
+  { name: "modbusParity",  slave: 20, fc: 3, addr: 42002, type: "u16", scale: 1, offset: 0, unit: "", enabled: false },
+  { name: "modbusBaud",    slave: 20, fc: 3, addr: 42003, type: "u32", scale: 1, offset: 0, unit: "bps", enabled: false },
+  { name: "rtcSetApply",   slave: 20, fc: 3, addr: 42019, type: "u16", scale: 1, offset: 0, unit: "", enabled: false },
+  // 测量配置
+  { name: "sampleCycle",   slave: 20, fc: 3, addr: 43000, type: "u16", scale: 1, offset: 0, unit: "s", enabled: true },
+  { name: "measureRange",  slave: 20, fc: 3, addr: 43001, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "measureRange2", slave: 20, fc: 3, addr: 43003, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "command",       slave: 20, fc: 3, addr: 43005, type: "u16", scale: 1, offset: 0, unit: "", enabled: true },
+  // 测量值
+  { name: "tecPowerNow",   slave: 20, fc: 3, addr: 46000, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "temperature1",  slave: 20, fc: 3, addr: 46002, type: "f32-le-words", scale: 1, offset: 0, unit: "℃", enabled: true },
+  { name: "temperature2",  slave: 20, fc: 3, addr: 46004, type: "f32-le-words", scale: 1, offset: 0, unit: "℃", enabled: true },
+  // 标定 / 光学
+  { name: "slope",         slave: 20, fc: 3, addr: 48000, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "intercept",     slave: 20, fc: 3, addr: 48002, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "colorSlope",    slave: 20, fc: 3, addr: 48004, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "colorIntercept",slave: 20, fc: 3, addr: 48006, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "turbSlope",     slave: 20, fc: 3, addr: 48008, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "turbIntercept", slave: 20, fc: 3, addr: 48010, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "ct365",         slave: 20, fc: 3, addr: 48016, type: "u16", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "cr365",         slave: 20, fc: 3, addr: 48017, type: "u16", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "t365",          slave: 20, fc: 3, addr: 48052, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+  { name: "r365",          slave: 20, fc: 3, addr: 48054, type: "f32-le-words", scale: 1, offset: 0, unit: "", enabled: true },
+];
+
+function defaultConfig() {
+  return {
+    app: "modbus-rtu-host",
+    version: 1,
+    serial: { baudRate: 9600, dataBits: 8, parity: "even", stopBits: 1, slave: 20, addrFromOne: false },
+    poll: { enabled: false, intervalMs: 500, timeoutMs: 300, retries: 1 },
+    registers: [],
+    views: [
+      { id: 1, title: "读值表", mode: "table", channels: [], timeWindowSec: 300, yMin: null, yMax: null, autoScale: true, paused: false },
+      { id: 2, title: "短期曲线", mode: "chart", channels: [], timeWindowSec: 300, yMin: null, yMax: null, autoScale: true, paused: false },
+      { id: 3, title: "长期曲线", mode: "chart", channels: [], timeWindowSec: 7200, yMin: null, yMax: null, autoScale: true, paused: false },
+      { id: 4, title: "参数", mode: "chart", channels: [], timeWindowSec: 600, yMin: null, yMax: null, autoScale: true, paused: false },
+    ],
+    history: { capacityHours: 2 },
+  };
+}
+
+/* ============================================================
+ * 1. 工具
+ * ============================================================ */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const nowMs = () => Date.now();
+
+function hex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+}
+
+function downloadText(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function toast(msg, ms = 2200) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), ms);
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+}
+
+/* ============================================================
+ * 2. CRC16 / 组帧 / 解码
+ * ============================================================ */
+function crc16(buf) {
+  let crc = 0xffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= buf[i];
+    for (let j = 0; j < 8; j++) {
+      if (crc & 1) crc = (crc >> 1) ^ 0xa001;
+      else crc >>= 1;
+    }
+  }
+  return crc & 0xffff;
+}
+
+function appendCrc(frame) {
+  const c = crc16(frame);
+  const out = new Uint8Array(frame.length + 2);
+  out.set(frame, 0);
+  out[frame.length] = c & 0xff;
+  out[frame.length + 1] = (c >> 8) & 0xff;
+  return out;
+}
+
+function checkCrc(frame) {
+  if (frame.length < 4) return false;
+  const body = frame.subarray(0, frame.length - 2);
+  const expect = crc16(body);
+  const got = frame[frame.length - 2] | (frame[frame.length - 1] << 8);
+  return expect === got;
+}
+
+/** 读保持/输入：FC 03 / 04 */
+function buildRead(slave, fc, addr, qty) {
+  const body = Uint8Array.from([
+    slave & 0xff, fc & 0xff,
+    (addr >> 8) & 0xff, addr & 0xff,
+    (qty >> 8) & 0xff, qty & 0xff,
+  ]);
+  return appendCrc(body);
+}
+
+/** 写单寄存器 FC06 */
+function buildWriteSingle(slave, addr, value16) {
+  const body = Uint8Array.from([
+    slave & 0xff, 0x06,
+    (addr >> 8) & 0xff, addr & 0xff,
+    (value16 >> 8) & 0xff, value16 & 0xff,
+  ]);
+  return appendCrc(body);
+}
+
+/** 写多寄存器 FC16 */
+function buildWriteMulti(slave, addr, values) {
+  const qty = values.length;
+  const byteCount = qty * 2;
+  const body = new Uint8Array(7 + byteCount);
+  body[0] = slave & 0xff;
+  body[1] = 0x10;
+  body[2] = (addr >> 8) & 0xff;
+  body[3] = addr & 0xff;
+  body[4] = (qty >> 8) & 0xff;
+  body[5] = qty & 0xff;
+  body[6] = byteCount;
+  for (let i = 0; i < qty; i++) {
+    body[7 + i * 2] = (values[i] >> 8) & 0xff;
+    body[7 + i * 2 + 1] = values[i] & 0xff;
+  }
+  return appendCrc(body);
+}
+
+const EXCEPTION_NAMES = {
+  1: "非法功能码",
+  2: "非法数据地址",
+  3: "非法数据值",
+  4: "从站设备故障",
+  5: "确认",
+  6: "从站忙",
+  8: "存储奇偶性差错",
+  10: "网关路径不可用",
+  11: "网关目标无响应",
+};
+
+/**
+ * 解码读响应。
+ * @returns {{regs:number[], raw:Uint8Array}|{error:string}}
+ */
+function parseReadResponse(frame, expectSlave, expectFc, qty) {
+  if (!checkCrc(frame)) return { error: "CRC错误" };
+  const slave = frame[0];
+  const fc = frame[1];
+  if (slave !== expectSlave) return { error: `从站不符 ${slave}≠${expectSlave}` };
+  if (fc === (expectFc | 0x80)) {
+    const code = frame[2];
+    return { error: `异常码${code} ${EXCEPTION_NAMES[code] || ""}` };
+  }
+  if (fc !== expectFc) return { error: `FC不符 ${fc}≠${expectFc}` };
+  const bc = frame[2];
+  if (frame.length < 5 + bc) return { error: "长度不足" };
+  if (bc !== qty * 2) return { error: `字节数不符 ${bc}≠${qty * 2}` };
+  const regs = [];
+  for (let i = 0; i < qty; i++) {
+    regs.push((frame[3 + i * 2] << 8) | frame[4 + i * 2]);
+  }
+  return { regs, raw: frame };
+}
+
+function parseWriteResponse(frame, expectSlave, expectFc) {
+  if (!checkCrc(frame)) return { error: "CRC错误" };
+  const slave = frame[0];
+  const fc = frame[1];
+  if (slave !== expectSlave) return { error: `从站不符 ${slave}≠${expectSlave}` };
+  if (fc === (expectFc | 0x80)) {
+    const code = frame[2];
+    return { error: `异常码${code} ${EXCEPTION_NAMES[code] || ""}` };
+  }
+  if (fc !== expectFc) return { error: `FC不符 ${fc}≠${expectFc}` };
+  return { ok: true, addr: (frame[2] << 8) | frame[3], value: (frame[4] << 8) | frame[5], raw: frame };
+}
+
+/**
+ * 32 位值 ↔ 两个寄存器字。
+ * ST-605：float/uint32 为低 16 位字在前（le-words），每字内高字节先传。
+ * 例：5.0 = 0x40A00000 → 字序 [0x0000, 0x40A0] → 线上字节 00 00 40 A0
+ */
+function wordsToU32(regs, type) {
+  const w0 = (regs[0] ?? 0) & 0xffff;
+  const w1 = (regs[1] ?? 0) & 0xffff;
+  const be = type === "f32-be-words" || type === "u32-be-words" || type === "i32-be-words";
+  return be ? (((w0 << 16) | w1) >>> 0) : (((w1 << 16) | w0) >>> 0);
+}
+
+function u32ToWords(u, type) {
+  u = u >>> 0;
+  const lo = u & 0xffff;
+  const hi = (u >>> 16) & 0xffff;
+  const be = type === "f32-be-words" || type === "u32-be-words" || type === "i32-be-words";
+  return be ? [hi, lo] : [lo, hi];
+}
+
+function u32ToFloat(u) {
+  const buf = new ArrayBuffer(4);
+  const dv = new DataView(buf);
+  dv.setUint32(0, u, false);
+  return dv.getFloat32(0, false);
+}
+
+function floatToU32(f) {
+  const buf = new ArrayBuffer(4);
+  const dv = new DataView(buf);
+  dv.setFloat32(0, Number(f), false);
+  return dv.getUint32(0, false);
+}
+
+/** 从寄存器字数组按类型解出物理前的原始数值 */
+function decodeValue(regs, type) {
+  switch (type) {
+    case "u16": return (regs[0] ?? 0) >>> 0;
+    case "i16": return ((regs[0] ?? 0) << 16) >> 16;
+    case "u32": return wordsToU32(regs, "f32-le-words"); // 默认低字在前
+    case "i32": return wordsToU32(regs, "f32-le-words") | 0;
+    case "f32":
+    case "f32-le-words":
+    case "f32-be-words":
+      return u32ToFloat(wordsToU32(regs, type === "f32" ? "f32-le-words" : type));
+    default: return regs[0];
+  }
+}
+
+/** 把数值编码为寄存器字（与 decodeValue 对称） */
+function encodeValue(value, type) {
+  switch (type) {
+    case "u16": return [value & 0xffff];
+    case "i16": return [value & 0xffff];
+    case "u32": return u32ToWords(value >>> 0, "f32-le-words");
+    case "i32": return u32ToWords(value | 0, "f32-le-words");
+    case "f32":
+    case "f32-le-words":
+    case "f32-be-words":
+      return u32ToWords(floatToU32(value), type === "f32" ? "f32-le-words" : type);
+    default: return [value & 0xffff];
+  }
+}
+
+function wordCount(type) {
+  return TYPE_WORD[type] || 1;
+}
+
+/** 表内地址 → 线上 PDU 地址（勾选「地址从 1 起」时减 1） */
+function addrFromOneEnabled() {
+  const el = $("chkAddrFromOne");
+  return !!(el && el.checked);
+}
+
+function toPduAddr(tableAddr) {
+  const a = Number(tableAddr) | 0;
+  return addrFromOneEnabled() ? a - 1 : a;
+}
+
+function toTableAddr(pduAddr) {
+  const a = Number(pduAddr) | 0;
+  return addrFromOneEnabled() ? a + 1 : a;
+}
+
+/* ============================================================
+ * 3. 状态
+ * ============================================================ */
+const state = {
+  cfg: defaultConfig(),
+  // runtime
+  connected: false,
+  port: null,
+  reader: null,
+  writer: null,
+  readBuf: new Uint8Array(0),
+  waiting: null, // {resolve, reject, timer, expectLen, acc}
+  txCount: 0,
+  rxCount: 0,
+  history: new Map(), // name -> [{t,v,q}]
+  lastValues: new Map(), // name -> {value, quality, ts}
+  writeQueue: [],
+  polling: false,
+  pollTimer: null,
+  pollBusy: false,
+  renderPending: false,
+  openChannelPop: null,
+  disconnecting: false,
+  readLoopPromise: null,
+  sampleTs: 0,
+};
+// 调试/回归挂点（不影响业务）
+globalThis.__mbState = state;
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+function regKey(r) {
+  return `${r.slave}|${r.fc}|${r.addr}|${r.type}|${r.name}`;
+}
+
+function ensureRegRuntime(r) {
+  if (!r._id) r._id = uid();
+  return r._id;
+}
+
+/* ============================================================
+ * 4. 日志
+ * ============================================================ */
+function log(kind, msg) {
+  const body = $("logBody");
+  const line = document.createElement("div");
+  line.className = `log-line ${kind}`;
+  const ts = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+  line.textContent = `[${ts}] ${msg}`;
+  body.appendChild(line);
+  while (body.children.length > 500) body.removeChild(body.firstChild);
+  body.scrollTop = body.scrollHeight;
+  $("logStats").textContent = `TX ${state.txCount}  RX ${state.rxCount}`;
+}
+
+/* ============================================================
+ * 5. 串口读写事务
+ * ============================================================ */
+/** 带超时的 Promise，避免 Web Serial 的 cancel/close 永久挂起 */
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label || "操作"}超时 ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function connectSerial() {
+  if (!("serial" in navigator)) {
+    setStatus("err", "Web Serial 不可用");
+    log("err", "当前浏览器/环境不支持 Web Serial API。请使用 Chrome/Edge，经 HTTPS、localhost 或 file:// 打开。");
+    toast("Web Serial 不可用");
+    return;
+  }
+  if (state.connected || state.disconnecting) return;
+  try {
+    const port = await navigator.serial.requestPort();
+    const baudRate = Number($("selBaud").value);
+    const dataBits = Number($("selData").value);
+    const parity = $("selParity").value;
+    const stopBits = Number($("selStop").value);
+    await port.open({ baudRate, dataBits, parity, stopBits });
+    state.port = port;
+    state.writer = port.writable.getWriter();
+    state.readBuf = new Uint8Array(0);
+    state.connected = true;
+    state.disconnecting = false;
+
+    // 读循环：保存 Promise，断开时可限时等待其退出
+    state.readLoopPromise = (async () => {
+      while (port.readable && state.connected) {
+        const reader = port.readable.getReader();
+        state.reader = reader;
+        try {
+          while (state.connected) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value && value.length) onSerialData(value);
+          }
+        } catch (e) {
+          if (state.connected) log("err", "读串口异常: " + e.message);
+        } finally {
+          try { reader.releaseLock(); } catch (_) {}
+          if (state.reader === reader) state.reader = null;
+        }
+      }
+    })();
+
+    saveConfig();
+
+    setStatus("on", `已连接 ${baudRate} ${dataBits}${parity[0].toUpperCase()}${stopBits}`);
+    $("btnConnect").disabled = true;
+    $("btnDisconnect").disabled = false;
+    log("info", `串口已连接 ${baudRate} ${dataBits}${parity[0].toUpperCase()}${stopBits}`);
+    toast("串口已连接");
+  } catch (e) {
+    setStatus("err", "连接失败");
+    log("err", "连接失败: " + e.message);
+    toast("连接失败: " + e.message);
+    $("btnConnect").disabled = false;
+    $("btnDisconnect").disabled = true;
+  }
+}
+
+async function disconnectSerial() {
+  if (state.disconnecting) return;
+  if (!state.port && !state.connected && !state.reader && !state.writer) {
+    setStatus("", "未连接");
+    return;
+  }
+  state.disconnecting = true;
+
+  // 1) 先刷新 UI，避免后续 await 卡住时界面无响应
+  state.connected = false;
+  stopPolling();
+  setStatus("", "断开中…");
+  $("btnConnect").disabled = true;
+  $("btnDisconnect").disabled = true;
+  log("info", "正在断开串口…");
+
+  // 2) 中断未完成事务
+  const waiting = state.waiting;
+  state.waiting = null;
+  if (waiting) {
+    clearTimeout(waiting.timer);
+    try { waiting.reject(new Error("已断开")); } catch (_) {}
+  }
+
+  // 3) 先解锁 writer
+  if (state.writer) {
+    try { state.writer.releaseLock(); } catch (_) {}
+    state.writer = null;
+  }
+
+  // 4) 取消 reader（限时），再补 releaseLock
+  const reader = state.reader;
+  state.reader = null;
+  if (reader) {
+    try {
+      await withTimeout(Promise.resolve(reader.cancel()), 400, "取消读流");
+    } catch (_) {}
+    try { reader.releaseLock(); } catch (_) {}
+  }
+
+  // 5) 等读循环退出（限时）
+  const loop = state.readLoopPromise;
+  state.readLoopPromise = null;
+  if (loop) {
+    try {
+      await withTimeout(loop, 400, "读循环退出");
+    } catch (_) {}
+  }
+
+  // 6) 关闭串口（限时）—— 流仍锁住时 close 可能挂起
+  const port = state.port;
+  state.port = null;
+  if (port) {
+    try {
+      await withTimeout(Promise.resolve(port.close()), 800, "关闭串口");
+    } catch (e) {
+      log("warn", "关闭串口: " + (e && e.message ? e.message : e));
+    }
+  }
+
+  state.readBuf = new Uint8Array(0);
+  state.disconnecting = false;
+  setStatus("", "未连接");
+  $("btnConnect").disabled = false;
+  $("btnDisconnect").disabled = true;
+  log("info", "串口已断开");
+  toast("串口已断开");
+}
+
+function setStatus(kind, text) {
+  const pill = $("statusPill");
+  pill.classList.remove("on", "err");
+  if (kind) pill.classList.add(kind);
+  $("statusText").textContent = text;
+}
+
+function onSerialData(chunk) {
+  state.rxCount += chunk.length;
+  $("logStats").textContent = `TX ${state.txCount}  RX ${state.rxCount}`;
+  const merged = new Uint8Array(state.readBuf.length + chunk.length);
+  merged.set(state.readBuf, 0);
+  merged.set(chunk, state.readBuf.length);
+  state.readBuf = merged;
+
+  const w = state.waiting;
+  if (!w) {
+    log("rx", "HEX " + hex(chunk));
+    // 缓冲上限，防止无主站时无限涨
+    if (state.readBuf.length > 4096) state.readBuf = state.readBuf.subarray(state.readBuf.length - 256);
+    return;
+  }
+
+  // 按实际帧长收齐：异常响应固定 5 字节，读响应按 byteCount，写响应 8 字节
+  const need = expectedFrameLen(state.readBuf, w.expectLen);
+  if (need != null && state.readBuf.length >= need) {
+    const frame = state.readBuf.subarray(0, need);
+    const rest = state.readBuf.subarray(need);
+    state.readBuf = new Uint8Array(rest);
+    clearTimeout(w.timer);
+    state.waiting = null;
+    log("rx", "HEX " + hex(frame));
+    w.resolve(frame);
+  }
+}
+
+/** 根据已收字节判断完整帧长；不足以判定时返回 null */
+function expectedFrameLen(buf, fallback) {
+  if (buf.length < 2) return null;
+  const fc = buf[1];
+  if (fc & 0x80) return 5; // 异常响应
+  if (fc === 3 || fc === 4) {
+    if (buf.length < 3) return null;
+    return 5 + buf[2]; // addr/byteCount/data + CRC2
+  }
+  if (fc === 6 || fc === 16) return 8;
+  return fallback;
+}
+
+/**
+ * 发送一帧并等待响应。
+ * @param {Uint8Array} req
+ * @param {number} expectLen 期望响应字节数
+ * @returns {Promise<Uint8Array>}
+ */
+function transact(req, expectLen) {
+  return new Promise(async (resolve, reject) => {
+    if (!state.connected || state.disconnecting || !state.writer) {
+      reject(new Error("未连接"));
+      return;
+    }
+    // 清掉陈旧缓冲
+    state.readBuf = new Uint8Array(0);
+    const timeoutMs = Number($("inpTimeout").value) || 300;
+    const timer = setTimeout(() => {
+      if (state.waiting && state.waiting.timer === timer) {
+        state.waiting = null;
+        log("warn", `超时 ${timeoutMs}ms，期望 ${expectLen} 字节，收到 ${state.readBuf.length}`);
+        reject(new Error("超时"));
+      }
+    }, timeoutMs);
+    state.waiting = { resolve, reject, timer, expectLen };
+    try {
+      await state.writer.write(req);
+      state.txCount++;
+      $("logStats").textContent = `TX ${state.txCount}  RX ${state.rxCount}`;
+      log("tx", "HEX " + hex(req));
+    } catch (e) {
+      clearTimeout(timer);
+      state.waiting = null;
+      reject(e);
+    }
+  });
+}
+
+/** 带重试的事务 */
+async function transactRetry(req, expectLen) {
+  const retries = Number($("inpRetries").value) || 0;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await transact(req, expectLen);
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) await sleep(20);
+    }
+  }
+  throw lastErr;
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/* ============================================================
+ * 6. 读寄存器 / 写寄存器
+ * ============================================================ */
+function qualityOf(errMsg) {
+  if (/超时/.test(errMsg)) return "timeout";
+  if (/异常码/.test(errMsg)) return "ex";
+  return "ex";
+}
+
+function setRegResult(reg, value, quality, detail) {
+  reg._value = value;
+  reg._quality = quality;
+  // 同一轮采样共用时间戳，导出宽表时一行对齐
+  reg._ts = state.sampleTs || nowMs();
+  state.lastValues.set(reg.name, { value, quality, ts: reg._ts });
+  if (quality === "good" && reg.enabled !== false) {
+    pushHistory(reg.name, reg._ts, value, quality);
+  }
+  if (detail) reg._detail = detail;
+}
+
+function pushHistory(name, t, v, q) {
+  let arr = state.history.get(name);
+  if (!arr) {
+    arr = [];
+    state.history.set(name, arr);
+  }
+  arr.push({ t, v, q });
+  // 容量裁剪
+  const hours = Number($("inpHistHours").value) || state.cfg.history.capacityHours || 2;
+  const maxMs = hours * 3600 * 1000;
+  const maxPts = Math.min(200000, Math.ceil((hours * 3600 * 1000) / Math.max(50, Number($("inpInterval").value) || 500)) + 1000);
+  const cutoff = t - maxMs;
+  let i = 0;
+  while (i < arr.length && (arr[i].t < cutoff || arr.length - i > maxPts)) i++;
+  if (i > 0) arr.splice(0, i);
+}
+
+/** 读一行（单寄存器定义，可跨 1~2 字） */
+async function readRegister(reg) {
+  const wc = wordCount(reg.type);
+  const slave = Number(reg.slave) || 20;
+  const fc = Number(reg.fc) === 4 ? 4 : 3;
+  const addr = toPduAddr(reg.addr);
+  const req = buildRead(slave, fc, addr, wc);
+  const expectLen = 5 + wc * 2;
+  const raw = await transactRetry(req, expectLen);
+  const parsed = parseReadResponse(raw, slave, fc, wc);
+  if (parsed.error) {
+    setRegResult(reg, null, qualityOf(parsed.error), parsed.error);
+    throw new Error(`${reg.name}: ${parsed.error}`);
+  }
+  const rawVal = decodeValue(parsed.regs, reg.type);
+  const phys = rawVal * (Number(reg.scale) || 1) + (Number(reg.offset) || 0);
+  setRegResult(reg, phys, "good", hex(parsed.regs.map((x) => [(x >> 8) & 0xff, x & 0xff]).flat()));
+  return phys;
+}
+
+/** 合并读：同一从站+FC+连续地址 */
+function buildMergeJobs(regs) {
+  const list = regs
+    .filter((r) => r.enabled)
+    .map((r) => ({
+      reg: r,
+      slave: Number(r.slave) || 20,
+      fc: Number(r.fc) === 4 ? 4 : 3,
+      addr: toPduAddr(r.addr),
+      words: wordCount(r.type),
+    }))
+    .filter((x) => x.fc === 3 || x.fc === 4)
+    .filter((x) => Number.isFinite(x.addr) && x.words > 0)
+    .sort((a, b) => a.slave - b.slave || a.fc - b.fc || a.addr - b.addr);
+
+  const jobs = [];
+  let cur = null;
+  for (const item of list) {
+    const itemEnd = item.addr + item.words;
+    // 连续或小空洞（≤8 字）且总长度 ≤125 字时合并
+    if (
+      cur &&
+      cur.slave === item.slave &&
+      cur.fc === item.fc &&
+      item.addr >= cur.addr &&
+      item.addr - cur.end <= 8 &&
+      itemEnd - cur.addr <= 125
+    ) {
+      cur.end = Math.max(cur.end, itemEnd);
+      cur.items.push(item);
+    } else {
+      cur = {
+        slave: item.slave,
+        fc: item.fc,
+        addr: item.addr,
+        end: itemEnd,
+        items: [item],
+      };
+      jobs.push(cur);
+    }
+  }
+  for (const j of jobs) {
+    j.qty = clamp(j.end - j.addr, 1, 125);
+  }
+  return jobs;
+}
+
+async function runMergeJob(job) {
+  const req = buildRead(job.slave, job.fc, job.addr, job.qty);
+  const expectLen = 5 + job.qty * 2;
+  const raw = await transactRetry(req, expectLen);
+  const parsed = parseReadResponse(raw, job.slave, job.fc, job.qty);
+  if (parsed.error) {
+    for (const it of job.items) {
+      setRegResult(it.reg, null, qualityOf(parsed.error), parsed.error);
+    }
+    throw new Error(parsed.error);
+  }
+  for (const it of job.items) {
+    const off = it.addr - job.addr;
+    const slice = parsed.regs.slice(off, off + it.words);
+    const rawVal = decodeValue(slice, it.reg.type);
+    const phys = rawVal * (Number(it.reg.scale) || 1) + (Number(it.reg.offset) || 0);
+    setRegResult(it.reg, phys, "good");
+  }
+  return true;
+}
+
+/** 写单行（按写入值） */
+async function writeRegister(reg) {
+  const writeEl = document.querySelector(`[data-write="${reg._id}"]`);
+  const raw = writeEl ? Number(writeEl.value) : NaN;
+  if (!Number.isFinite(raw)) {
+    toast("请填写有效写入值");
+    return;
+  }
+  // 物理值 → 寄存器原始
+  const scale = Number(reg.scale) || 1;
+  const offset = Number(reg.offset) || 0;
+  const eng = scale === 0 ? raw : (raw - offset) / scale;
+  const words = encodeValue(eng, reg.type);
+  const slave = Number(reg.slave) || 20;
+  const addr = toPduAddr(reg.addr);
+  let req, expectLen, fc;
+  if (words.length === 1) {
+    fc = 6;
+    req = buildWriteSingle(slave, addr, words[0]);
+    expectLen = 8;
+  } else {
+    fc = 16;
+    req = buildWriteMulti(slave, addr, words);
+    expectLen = 8;
+  }
+  log("info", `写 ${reg.name} → ${raw} (eng=${eng})`);
+  const resp = await transactRetry(req, expectLen);
+  const parsed = parseWriteResponse(resp, slave, fc);
+  if (parsed.error) {
+    log("err", `写失败 ${reg.name}: ${parsed.error}`);
+    toast("写失败: " + parsed.error);
+    setRegResult(reg, null, qualityOf(parsed.error), parsed.error);
+    scheduleRender();
+    return;
+  }
+  log("info", `写成功 ${reg.name} @${addr} = ${raw}`);
+  toast(`已写入 ${reg.name}`);
+  // 写后读回
+  try {
+    await readRegister(reg);
+  } catch (_) {}
+  scheduleRender();
+}
+
+/* ============================================================
+ * 7. 轮询调度
+ * ============================================================ */
+function startPolling() {
+  if (!state.connected) {
+    toast("请先连接串口");
+    return;
+  }
+  if (state.polling) return;
+  state.polling = true;
+  $("btnPollToggle").textContent = "停止轮询";
+  $("btnPollToggle").classList.remove("primary");
+  $("btnPollToggle").classList.add("danger");
+  log("info", "开始轮询");
+  state.cfg.poll.enabled = true;
+  saveConfig();
+  schedulePoll();
+}
+
+function stopPolling() {
+  state.polling = false;
+  if (state.pollTimer) {
+    clearTimeout(state.pollTimer);
+    state.pollTimer = null;
+  }
+  $("btnPollToggle").textContent = "开始轮询";
+  $("btnPollToggle").classList.add("primary");
+  $("btnPollToggle").classList.remove("danger");
+  state.cfg.poll.enabled = false;
+  saveConfig();
+}
+
+async function schedulePoll() {
+  if (!state.polling) return;
+  const interval = clamp(Number($("inpInterval").value) || 500, 100, 10000);
+  const t0 = performance.now();
+  try {
+    await runPollOnce();
+  } catch (e) {
+    // 单次失败不中断
+  }
+  const elapsed = performance.now() - t0;
+  const wait = Math.max(10, interval - elapsed);
+  if (state.polling) {
+    state.pollTimer = setTimeout(schedulePoll, wait);
+  }
+}
+
+async function runPollOnce() {
+  if (state.pollBusy) return;
+  state.pollBusy = true;
+  state.sampleTs = nowMs();
+  try {
+    // 写队列优先
+    while (state.writeQueue.length) {
+      const reg = state.writeQueue.shift();
+      try {
+        await writeRegister(reg);
+      } catch (e) {
+        log("err", "写队列: " + e.message);
+      }
+    }
+    const jobs = buildMergeJobs(state.cfg.registers);
+    for (const job of jobs) {
+      if (!state.polling && state.writeQueue.length === 0) break;
+      try {
+        await runMergeJob(job);
+      } catch (e) {
+        // 行级已标记
+      }
+      // 写操作可插入
+      while (state.writeQueue.length) {
+        const reg = state.writeQueue.shift();
+        try { await writeRegister(reg); } catch (err) { log("err", err.message); }
+      }
+    }
+    scheduleRender();
+  } finally {
+    state.pollBusy = false;
+  }
+}
+
+async function readOnce() {
+  if (!state.connected) {
+    toast("请先连接串口");
+    return;
+  }
+  state.sampleTs = nowMs();
+  const jobs = buildMergeJobs(state.cfg.registers);
+  log("info", `立即读：${jobs.length} 笔合并事务`);
+  for (const job of jobs) {
+    try {
+      await runMergeJob(job);
+    } catch (_) {}
+  }
+  scheduleRender();
+}
+
+/* ============================================================
+ * 8. 配置持久化
+ * ============================================================ */
+function updateAddrHeader() {
+  const th = $("thAddr");
+  if (!th) return;
+  if (addrFromOneEnabled()) {
+    th.textContent = "地址(1起)";
+    th.title = "表地址从 1 起算，发帧时自动减 1 得到 PDU 地址（填 48001 → 发 48000）";
+  } else {
+    th.textContent = "地址";
+    th.title = "PDU 地址（发帧字节中的地址）。勾选「地址从 1 起」后按表地址填写";
+  }
+}
+
+/** 导出采样历史为宽表 CSV（一行一时刻，一列一寄存器；UTF-8 BOM） */
+function exportDataCsv() {
+  const fmtTime = (t) => {
+    const d = new Date(t);
+    const p = (n, w = 2) => String(n).padStart(w, "0");
+    return (
+      `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
+      `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`
+    );
+  };
+
+  // 列顺序：寄存器表顺序优先，再补历史里多出来的名
+  const names = [];
+  const seen = new Set();
+  for (const r of state.cfg.registers) {
+    if (r.name && state.history.has(r.name) && !seen.has(r.name)) {
+      names.push(r.name);
+      seen.add(r.name);
+    }
+  }
+  for (const n of state.history.keys()) {
+    if (!seen.has(n)) {
+      names.push(n);
+      seen.add(n);
+    }
+  }
+  if (!names.length) {
+    toast("暂无采样数据可导出");
+    return;
+  }
+
+  // time → { name: value }，同一轮采样 time 相同
+  const timeMap = new Map();
+  let pointCount = 0;
+  for (const name of names) {
+    for (const p of state.history.get(name)) {
+      if (p.q !== "good" || !Number.isFinite(p.v)) continue;
+      let slot = timeMap.get(p.t);
+      if (!slot) {
+        slot = new Map();
+        timeMap.set(p.t, slot);
+      }
+      slot.set(name, p.v);
+      pointCount++;
+    }
+  }
+  const times = [...timeMap.keys()].sort((a, b) => a - b);
+  if (!times.length) {
+    toast("暂无有效采样点可导出");
+    return;
+  }
+
+  const intervalMs = Number($("inpInterval").value) || 500;
+  const baud = $("selBaud").value;
+  const parity = $("selParity").value;
+  const dataBits = $("selData").value;
+  const stopBits = $("selStop").value;
+  const slave = $("inpSlave").value;
+
+  const rows = [];
+  rows.push(["SILOG"]);
+  rows.push([
+    `Poll definition: interval=${intervalMs}ms timeout=${$("inpTimeout").value}ms ` +
+      `retries=${$("inpRetries").value} slave=${slave} ${baud} ${dataBits}${parity}${stopBits} ` +
+      `exported=${fmtTime(nowMs())} rows=${times.length}`,
+  ]);
+  // 列头：time + 各寄存器名（与截图一致：时间在 A，参数名在表头行）
+  rows.push(["time", ...names.map((n) => csvEscape(n))]);
+  for (const t of times) {
+    const slot = timeMap.get(t);
+    const row = [fmtTime(t)];
+    for (const name of names) {
+      const v = slot.get(name);
+      row.push(v === undefined ? "" : String(v));
+    }
+    rows.push(row);
+  }
+
+  const text = rows.map((r) => r.join(",")).join("\r\n");
+  const stamp = new Date();
+  const p2 = (n) => String(n).padStart(2, "0");
+  const fname =
+    `SILOG-${stamp.getFullYear()}${p2(stamp.getMonth() + 1)}${p2(stamp.getDate())}-` +
+    `${p2(stamp.getHours())}${p2(stamp.getMinutes())}${p2(stamp.getSeconds())}.csv`;
+  downloadText(fname, "﻿" + text, "text/csv;charset=utf-8");
+  toast(`已导出 ${times.length} 行 × ${names.length} 列`);
+  log("info", `导出宽表 ${times.length} 行 / ${pointCount} 点 → ${fname}`);
+}
+
+function collectConfig() {
+  const cfg = {
+    app: "modbus-rtu-host",
+    version: 1,
+    serial: {
+      baudRate: Number($("selBaud").value),
+      dataBits: Number($("selData").value),
+      parity: $("selParity").value,
+      stopBits: Number($("selStop").value),
+      slave: Number($("inpSlave").value) || 20,
+      addrFromOne: addrFromOneEnabled(),
+    },
+    poll: {
+      enabled: state.polling,
+      intervalMs: Number($("inpInterval").value) || 500,
+      timeoutMs: Number($("inpTimeout").value) || 300,
+      retries: Number($("inpRetries").value) || 0,
+    },
+    registers: state.cfg.registers.map((r) => ({
+      name: r.name,
+      slave: Number(r.slave) || 20,
+      fc: Number(r.fc) || 3,
+      addr: Number(r.addr) | 0,
+      type: r.type || "f32-le-words",
+      scale: Number(r.scale) || 1,
+      offset: Number(r.offset) || 0,
+      unit: r.unit || "",
+      enabled: !!r.enabled,
+    })),
+    views: state.cfg.views.map((v) => ({
+      id: v.id,
+      title: v.title,
+      mode: v.mode,
+      channels: [...(v.channels || [])],
+      timeWindowSec: Number(v.timeWindowSec) || 300,
+      yMin: v.yMin,
+      yMax: v.yMax,
+      autoScale: v.autoScale !== false,
+      paused: !!v.paused,
+    })),
+    history: {
+      capacityHours: Number($("inpHistHours").value) || 2,
+    },
+  };
+  return cfg;
+}
+
+function applyConfig(cfg) {
+  const d = defaultConfig();
+  const c = {
+    ...d,
+    ...cfg,
+    serial: { ...d.serial, ...(cfg.serial || {}) },
+    poll: { ...d.poll, ...(cfg.poll || {}) },
+    history: { ...d.history, ...(cfg.history || {}) },
+    registers: Array.isArray(cfg.registers) ? cfg.registers.map((r) => ({ ...r, _id: uid() })) : [],
+    views: Array.isArray(cfg.views) && cfg.views.length
+      ? cfg.views.slice(0, 4).map((v) => ({
+          ...d.views[0],
+          ...v,
+          id: v.id ?? uid(),
+          channels: Array.isArray(v.channels) ? v.channels : [],
+        }))
+      : d.views,
+  };
+  while (c.views.length < 4) {
+    c.views.push({
+      id: uid(),
+      title: `视图${c.views.length + 1}`,
+      mode: c.views.length === 0 ? "table" : "chart",
+      channels: [],
+      timeWindowSec: 300,
+      yMin: null,
+      yMax: null,
+      autoScale: true,
+      paused: false,
+    });
+  }
+  state.cfg = c;
+
+  // 同步控件
+  $("selBaud").value = String(c.serial.baudRate);
+  $("selData").value = String(c.serial.dataBits || 8);
+  $("selParity").value = c.serial.parity || "even";
+  $("selStop").value = String(c.serial.stopBits || 1);
+  $("inpSlave").value = String(c.serial.slave || 20);
+  $("chkAddrFromOne").checked = !!c.serial.addrFromOne;
+  updateAddrHeader();
+  $("inpInterval").value = String(c.poll.intervalMs || 500);
+  $("inpTimeout").value = String(c.poll.timeoutMs || 300);
+  $("inpRetries").value = String(c.poll.retries ?? 1);
+  $("inpHistHours").value = String(c.history.capacityHours || 2);
+  $("selLayout").value = c.views.length >= 4 ? "4" : c.views.length >= 2 ? "2" : "1";
+  renderRegisterTable();
+  renderViews();
+  scheduleRender();
+}
+
+function saveConfig() {
+  try {
+    // 只序列化持久化，绝不替换 state.cfg.registers（否则会丢掉 _id 运行时关联）
+    const snap = collectConfig();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
+    state.cfg.serial = snap.serial;
+    state.cfg.poll = { ...state.cfg.poll, ...snap.poll };
+    state.cfg.history = snap.history;
+  } catch (e) {
+    // ignore quota
+  }
+}
+
+/** 从表格事件定位寄存器（优先 _id，回退行序号） */
+function regFromEvent(e) {
+  const tr = e.target.closest("tr");
+  if (!tr) return null;
+  const byId = state.cfg.registers.find((x) => x._id === tr.dataset.id);
+  if (byId) return byId;
+  const rows = Array.from($("regBody").children);
+  const idx = rows.indexOf(tr);
+  return idx >= 0 ? state.cfg.registers[idx] : null;
+}
+
+function applyRegField(r, e) {
+  const f = e.target.dataset.f;
+  if (!f || !r) return false;
+  if (f === "enabled") r.enabled = e.target.checked;
+  else if (f === "name") r.name = e.target.value;
+  else if (f === "slave") r.slave = Number(e.target.value) || 20;
+  else if (f === "fc") r.fc = Number(e.target.value) || 3;
+  else if (f === "addr") r.addr = Number(e.target.value) | 0;
+  else if (f === "type") r.type = e.target.value;
+  else if (f === "scale") r.scale = Number(e.target.value) || 1;
+  else if (f === "offset") r.offset = Number(e.target.value) || 0;
+  else if (f === "unit") r.unit = e.target.value;
+  else return false;
+  return true;
+}
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const cfg = JSON.parse(raw);
+    applyConfig(cfg);
+    return true;
+  } catch (e) {
+    log("warn", "读取本地配置失败: " + e.message);
+    return false;
+  }
+}
+
+function exportJson() {
+  const cfg = collectConfig();
+  downloadText(
+    "modbus-rtu-host-config.json",
+    JSON.stringify(cfg, null, 2),
+    "application/json"
+  );
+  toast("已导出 JSON");
+}
+
+function importJsonText(text) {
+  try {
+    const cfg = JSON.parse(text);
+    applyConfig(cfg);
+    saveConfig();
+    toast("配置已导入");
+    log("info", "配置导入成功");
+  } catch (e) {
+    toast("JSON 解析失败");
+    log("err", "导入失败: " + e.message);
+  }
+}
+
+/* CSV */
+function csvEscape(s) {
+  const t = String(s ?? "");
+  if (/[",\n\r]/.test(t)) return `"${t.replace(/"/g, '""')}"`;
+  return t;
+}
+
+function exportCsv() {
+  const header = "name,slave,fc,addr,type,scale,offset,unit,enabled";
+  const lines = [header];
+  for (const r of state.cfg.registers) {
+    lines.push([
+      csvEscape(r.name),
+      r.slave,
+      r.fc,
+      toPduAddr(r.addr), // CSV 始终写 PDU 地址，与 regmap 一致
+      r.type,
+      r.scale,
+      r.offset,
+      csvEscape(r.unit),
+      r.enabled ? 1 : 0,
+    ].join(","));
+  }
+  // UTF-8 BOM 便于 Excel
+  downloadText("st605-registers.csv", "﻿" + lines.join("\r\n"), "text/csv;charset=utf-8");
+  toast("已导出 CSV");
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let i = 0, field = "", row = [], inQ = false;
+  text = text.replace(/^﻿/, "");
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQ = false; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if (ch === '"') { inQ = true; i++; continue; }
+    if (ch === ",") { row.push(field); field = ""; i++; continue; }
+    if (ch === "\r") { i++; continue; }
+    if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += ch; i++;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
+}
+
+function importCsvText(text) {
+  const rows = parseCsv(text);
+  if (!rows.length) {
+    toast("CSV 为空");
+    return;
+  }
+  let start = 0;
+  const first = rows[0].map((x) => String(x).trim().toLowerCase());
+  if (first.includes("name") && first.includes("addr")) start = 1;
+  const idx = {
+    name: first.indexOf("name"),
+    slave: first.indexOf("slave"),
+    fc: first.indexOf("fc"),
+    addr: first.indexOf("addr"),
+    type: first.indexOf("type"),
+    scale: first.indexOf("scale"),
+    offset: first.indexOf("offset"),
+    unit: first.indexOf("unit"),
+    enabled: first.indexOf("enabled"),
+  };
+  if (start === 0) {
+    // 无表头，按固定列序
+    idx.name = 0; idx.slave = 1; idx.fc = 2; idx.addr = 3; idx.type = 4;
+    idx.scale = 5; idx.offset = 6; idx.unit = 7; idx.enabled = 8;
+  }
+  const regs = [];
+  for (let i = start; i < rows.length; i++) {
+    const r = rows[i];
+    const get = (k, d = "") => (idx[k] >= 0 && r[idx[k]] !== undefined ? r[idx[k]] : d);
+    const name = get("name").trim();
+    if (!name) continue;
+    const type = get("type", "f32-le-words").trim() || "f32-le-words";
+    regs.push({
+      name,
+      slave: Number(get("slave", 20)) || 20,
+      fc: Number(get("fc", 3)) || 3,
+      addr: toTableAddr(Number(get("addr", 0)) | 0), // CSV 为 PDU 地址
+      type: TYPES.includes(type) ? type : "f32-le-words",
+      scale: Number(get("scale", 1)) || 1,
+      offset: Number(get("offset", 0)) || 0,
+      unit: get("unit", ""),
+      enabled: ["1", "true", "yes", ""].includes(String(get("enabled", 1)).trim().toLowerCase()),
+      _id: uid(),
+    });
+  }
+  if (!regs.length) {
+    toast("未解析到有效行");
+    return;
+  }
+  state.cfg.registers = regs;
+  renderRegisterTable();
+  saveConfig();
+  toast(`已导入 ${regs.length} 行`);
+  log("info", `CSV 导入 ${regs.length} 行`);
+}
+
+/* ============================================================
+ * 9. 寄存器表 UI
+ * ============================================================ */
+function renderRegisterTable() {
+  const tbody = $("regBody");
+  tbody.innerHTML = "";
+  for (const r of state.cfg.registers) {
+    ensureRegRuntime(r);
+    const tr = document.createElement("tr");
+    tr.dataset.id = r._id;
+    const q = r._quality || "none";
+    const qCls = q === "good" ? "q-good" : q === "timeout" ? "q-timeout" : q === "ex" ? "q-ex" : "q-none";
+    const qText = q === "good" ? "好" : q === "timeout" ? "超时" : q === "ex" ? "异常" : "—";
+    const valText = r._value == null || !Number.isFinite(r._value)
+      ? "—"
+      : (Math.abs(r._value) >= 1e4 || (Math.abs(r._value) < 1e-3 && r._value !== 0)
+        ? r._value.toExponential(4)
+        : (Math.round(r._value * 1e6) / 1e6).toString()) + (r.unit ? ` ${r.unit}` : "");
+
+    tr.innerHTML = `
+      <td class="col-en"><input type="checkbox" data-f="enabled" ${r.enabled ? "checked" : ""}></td>
+      <td class="col-name"><input type="text" data-f="name" value="${escapeHtml(r.name)}"></td>
+      <td class="col-slave"><input type="number" data-f="slave" value="${r.slave}" min="1" max="247"></td>
+      <td class="col-fc">
+        <select data-f="fc">
+          <option value="3" ${r.fc == 3 ? "selected" : ""}>03</option>
+          <option value="4" ${r.fc == 4 ? "selected" : ""}>04</option>
+          <option value="6" ${r.fc == 6 ? "selected" : ""}>06</option>
+          <option value="16" ${r.fc == 16 ? "selected" : ""}>16</option>
+        </select>
+      </td>
+      <td class="col-addr"><input type="number" data-f="addr" value="${r.addr}"></td>
+      <td class="col-type">
+        <select data-f="type">
+          ${TYPES.map((t) => `<option value="${t}" ${r.type === t ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+      </td>
+      <td class="col-sc"><input type="number" data-f="scale" value="${r.scale}" step="any"></td>
+      <td class="col-off"><input type="number" data-f="offset" value="${r.offset}" step="any"></td>
+      <td class="col-unit"><input type="text" data-f="unit" value="${escapeHtml(r.unit || "")}"></td>
+      <td class="col-val mono" data-cell="val">${escapeHtml(valText)}</td>
+      <td class="col-q ${qCls}" data-cell="q" title="${escapeHtml(r._detail || "")}">${qText}</td>
+      <td class="col-w">
+        <span style="display:flex;gap:4px">
+          <input type="number" data-write="${r._id}" step="any" placeholder="写入">
+          <button data-act="write" title="写入">写</button>
+        </span>
+      </td>
+      <td class="col-act"><button data-act="del" class="danger ghost" title="删除">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function updateRegRowValues() {
+  for (const r of state.cfg.registers) {
+    const tr = $(`regBody`).querySelector(`tr[data-id="${r._id}"]`);
+    if (!tr) continue;
+    const q = r._quality || "none";
+    const qCls = q === "good" ? "q-good" : q === "timeout" ? "q-timeout" : q === "ex" ? "q-ex" : "q-none";
+    const qText = q === "good" ? "好" : q === "timeout" ? "超时" : q === "ex" ? "异常" : "—";
+    const valText = r._value == null || !Number.isFinite(r._value)
+      ? "—"
+      : (Math.abs(r._value) >= 1e4 || (Math.abs(r._value) < 1e-3 && r._value !== 0)
+        ? r._value.toExponential(4)
+        : (Math.round(r._value * 1e6) / 1e6).toString()) + (r.unit ? ` ${r.unit}` : "");
+    const valCell = tr.querySelector('[data-cell="val"]');
+    const qCell = tr.querySelector('[data-cell="q"]');
+    if (valCell) valCell.textContent = valText;
+    if (qCell) {
+      qCell.textContent = qText;
+      qCell.className = `col-q ${qCls}`;
+      qCell.title = r._detail || "";
+    }
+  }
+}
+
+/* ============================================================
+ * 10. 视图窗 UI
+ * ============================================================ */
+function renderViews() {
+  const grid = $("viewGrid");
+  grid.innerHTML = "";
+  const n = state.cfg.views.length;
+  grid.className = n <= 1 ? "cols-1" : n <= 2 ? "cols-2" : "cols-4";
+  $("selLayout").value = n >= 4 ? "4" : n >= 2 ? "2" : "1";
+
+  state.cfg.views.forEach((v, idx) => {
+    const el = document.createElement("div");
+    el.className = "view";
+    el.dataset.vid = String(v.id);
+    const chCount = (v.channels || []).length;
+    el.innerHTML = `
+      <div class="view-head">
+        <input class="title" data-vf="title" value="${escapeHtml(v.title)}" title="标题">
+        <select data-vf="mode">
+          <option value="chart" ${v.mode === "chart" ? "selected" : ""}>曲线</option>
+          <option value="table" ${v.mode === "table" ? "selected" : ""}>表格</option>
+        </select>
+        ${v.mode === "chart" ? `
+          <select data-vf="timeWindowSec" title="时间窗">
+            ${[30, 60, 120, 300, 600, 1800, 3600, 7200, 14400, 28800].map((s) =>
+              `<option value="${s}" ${Number(v.timeWindowSec) === s ? "selected" : ""}>${s < 60 ? s + "s" : s / 60 + "min"}</option>`
+            ).join("")}
+          </select>
+          <label class="inline" style="font-size:11px">
+            <input type="checkbox" data-vf="autoScale" ${v.autoScale !== false ? "checked" : ""}> autoY
+          </label>
+          ${v.autoScale === false ? `
+            <input type="number" data-vf="yMin" placeholder="Ymin" value="${v.yMin ?? ""}" style="width:64px">
+            <input type="number" data-vf="yMax" placeholder="Ymax" value="${v.yMax ?? ""}" style="width:64px">
+          ` : ""}
+        ` : ""}
+        <button data-vact="channels" class="ghost">通道 ${chCount}</button>
+        <button data-vact="pause" class="ghost">${v.paused ? "继续" : "暂停"}</button>
+        <button data-vact="clear" class="ghost">清空</button>
+        ${idx > 0 ? `<button data-vact="remove" class="danger ghost">✕</button>` : ""}
+      </div>
+      <div class="view-body ${v.mode === "table" ? "table-mode" : ""}" data-body>
+        ${v.mode === "table" ? renderTableMode(v) : `<canvas data-canvas></canvas><div class="view-empty">选择通道后显示</div>`}
+      </div>
+    `;
+    grid.appendChild(el);
+    if (v.mode === "chart") {
+      const canvas = el.querySelector("canvas");
+      if (canvas) {
+        const ro = new ResizeObserver(() => drawView(v, canvas));
+        ro.observe(canvas.parentElement);
+        canvas._ro = ro;
+      }
+    }
+  });
+  scheduleRender();
+}
+
+function renderTableMode(v) {
+  const names = v.channels && v.channels.length
+    ? v.channels
+    : state.cfg.registers.filter((r) => r.enabled).map((r) => r.name);
+  if (!names.length) return `<div class="view-empty">选择通道后显示</div>`;
+  const rows = names.map((n) => {
+    const r = state.cfg.registers.find((x) => x.name === n);
+    const lv = state.lastValues.get(n);
+    const val = lv && Number.isFinite(lv.value) ? (Math.round(lv.value * 1e6) / 1e6).toString() : "—";
+    const unit = r?.unit ? ` ${r.unit}` : "";
+    const q = lv?.quality || "none";
+    const qText = q === "good" ? "好" : q === "timeout" ? "超时" : q === "ex" ? "异常" : "—";
+    return `<tr>
+      <td>${escapeHtml(n)}</td>
+      <td class="mono">${escapeHtml(val + unit)}</td>
+      <td>${qText}</td>
+    </tr>`;
+  }).join("");
+  return `<table>
+    <thead><tr><th>通道</th><th>当前值</th><th>质量</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function openChannelPopup(view, anchorBtn) {
+  closeChannelPopup();
+  const pop = document.createElement("div");
+  pop.className = "channel-pop";
+  const names = [...new Set(state.cfg.registers.map((r) => r.name))];
+  pop.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">勾选本窗通道（可与其他窗重复）</div>
+    ${names.map((n) => `
+      <label>
+        <input type="checkbox" value="${escapeHtml(n)}" ${view.channels.includes(n) ? "checked" : ""}>
+        <span>${escapeHtml(n)}</span>
+      </label>
+    `).join("")}
+    ${names.length ? "" : `<div style="color:var(--muted)">暂无寄存器</div>`}
+  `;
+  const body = anchorBtn.closest(".view").querySelector("[data-body]");
+  body.style.position = "relative";
+  body.appendChild(pop);
+  state.openChannelPop = { pop, view };
+
+  pop.addEventListener("change", (e) => {
+    const cb = e.target;
+    if (cb.type !== "checkbox") return;
+    const n = cb.value;
+    const set = new Set(view.channels);
+    if (cb.checked) set.add(n); else set.delete(n);
+    view.channels = [...set];
+    anchorBtn.textContent = `通道 ${view.channels.length}`;
+    saveConfig();
+    scheduleRender();
+  });
+
+  setTimeout(() => {
+    const onDoc = (ev) => {
+      if (!pop.contains(ev.target) && ev.target !== anchorBtn) {
+        closeChannelPopup();
+        document.removeEventListener("mousedown", onDoc);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+  }, 0);
+}
+
+function closeChannelPopup() {
+  if (state.openChannelPop) {
+    state.openChannelPop.pop.remove();
+    state.openChannelPop = null;
+  }
+}
+
+function addView() {
+  if (state.cfg.views.length >= 4) {
+    toast("最多 4 个视图窗");
+    return;
+  }
+  state.cfg.views.push({
+    id: uid(),
+    title: `视图${state.cfg.views.length + 1}`,
+    mode: "chart",
+    channels: [],
+    timeWindowSec: 300,
+    yMin: null,
+    yMax: null,
+    autoScale: true,
+    paused: false,
+  });
+  renderViews();
+  saveConfig();
+}
+
+function setViewCount(n) {
+  n = clamp(Number(n) || 4, 1, 4);
+  while (state.cfg.views.length > n) {
+    const removed = state.cfg.views.pop();
+    if (removed?.id != null) {
+      // ok
+    }
+  }
+  while (state.cfg.views.length < n) {
+    state.cfg.views.push({
+      id: uid(),
+      title: `视图${state.cfg.views.length + 1}`,
+      mode: state.cfg.views.length === 0 ? "table" : "chart",
+      channels: [],
+      timeWindowSec: state.cfg.views.length === 2 ? 7200 : 300,
+      yMin: null, yMax: null, autoScale: true, paused: false,
+    });
+  }
+  renderViews();
+  saveConfig();
+}
+
+/* ============================================================
+ * 11. 曲线绘制
+ * ============================================================ */
+function scheduleRender() {
+  if (state.renderPending) return;
+  state.renderPending = true;
+  requestAnimationFrame(() => {
+    state.renderPending = false;
+    updateRegRowValues();
+    for (const v of state.cfg.views) {
+      if (v.mode !== "chart" || v.paused) {
+        if (v.mode === "table") refreshTableView(v);
+        continue;
+      }
+      const el = document.querySelector(`.view[data-vid="${v.id}"]`);
+      if (!el) continue;
+      const canvas = el.querySelector("canvas");
+      if (canvas) drawView(v, canvas);
+    }
+    // 非暂停的表窗也要刷
+    for (const v of state.cfg.views) {
+      if (v.mode === "table") refreshTableView(v);
+    }
+  });
+}
+
+function refreshTableView(v) {
+  const el = document.querySelector(`.view[data-vid="${v.id}"] [data-body]`);
+  if (!el) return;
+  const names = v.channels && v.channels.length
+    ? v.channels
+    : state.cfg.registers.filter((r) => r.enabled).map((r) => r.name);
+  if (!names.length) {
+    if (!el.querySelector(".view-empty")) el.innerHTML = `<div class="view-empty">选择通道后显示</div>`;
+    return;
+  }
+  const html = renderTableMode(v);
+  // 仅当结构变化时重建，否则改单元格
+  const oldTable = el.querySelector("table");
+  if (!oldTable || oldTable.tBodies[0]?.rows.length !== names.length) {
+    el.innerHTML = html;
+    return;
+  }
+  names.forEach((n, i) => {
+    const row = oldTable.tBodies[0].rows[i];
+    if (!row) return;
+    const r = state.cfg.registers.find((x) => x.name === n);
+    const lv = state.lastValues.get(n);
+    const val = lv && Number.isFinite(lv.value) ? (Math.round(lv.value * 1e6) / 1e6).toString() : "—";
+    const unit = r?.unit ? ` ${r.unit}` : "";
+    const q = lv?.quality || "none";
+    const qText = q === "good" ? "好" : q === "timeout" ? "超时" : q === "ex" ? "异常" : "—";
+    row.cells[0].textContent = n;
+    row.cells[1].textContent = val + unit;
+    row.cells[2].textContent = qText;
+  });
+}
+
+function drawView(view, canvas) {
+  const parent = canvas.parentElement;
+  const w = parent.clientWidth;
+  const h = parent.clientHeight;
+  if (w < 10 || h < 10) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const padL = 52, padR = 12, padT = 18, padB = 28;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  if (plotW < 20 || plotH < 20) return;
+
+  // 背景
+  ctx.fillStyle = "#121820";
+  ctx.fillRect(0, 0, w, h);
+
+  const names = (view.channels || []).filter((n) => state.history.has(n) || state.lastValues.has(n));
+  const emptyEl = parent.querySelector(".view-empty");
+  if (emptyEl) emptyEl.style.display = names.length ? "none" : "flex";
+
+  const now = nowMs();
+  const windowMs = (Number(view.timeWindowSec) || 300) * 1000;
+  const t1 = now;
+  const t0 = now - windowMs;
+
+  // 收集序列（「清空」后仅显示 _clearAt 之后的点）
+  const clearAt = view._clearAt || 0;
+  const series = names.map((name, i) => {
+    const hist = state.history.get(name) || [];
+    const pts = hist.filter((p) => p.t >= Math.max(t0, clearAt) && p.t <= t1 && p.q === "good" && Number.isFinite(p.v));
+    return { name, color: CHART_COLORS[i % CHART_COLORS.length], pts };
+  }).filter((s) => s.pts.length > 0 || names.includes(s.name));
+
+  // Y 范围
+  let yMin = Infinity, yMax = -Infinity;
+  for (const s of series) {
+    for (const p of s.pts) {
+      if (p.v < yMin) yMin = p.v;
+      if (p.v > yMax) yMax = p.v;
+    }
+  }
+  if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
+    yMin = 0; yMax = 1;
+  }
+  if (view.autoScale === false && view.yMin != null && view.yMax != null) {
+    yMin = Number(view.yMin);
+    yMax = Number(view.yMax);
+    if (!(yMax > yMin)) { yMin = 0; yMax = 1; }
+  } else {
+    if (yMin === yMax) {
+      const pad = Math.abs(yMin) * 0.1 || 1;
+      yMin -= pad; yMax += pad;
+    } else {
+      const pad = (yMax - yMin) * 0.08;
+      yMin -= pad; yMax += pad;
+    }
+  }
+
+  const xOf = (t) => padL + ((t - t0) / windowMs) * plotW;
+  const yOf = (v) => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+  // 网格
+  ctx.strokeStyle = "#243040";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#8b9bb0";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    const v = yMin + ((yMax - yMin) * i) / yTicks;
+    const y = yOf(v);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.fillText(formatNum(v), padL - 6, y);
+  }
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const xTicks = 6;
+  for (let i = 0; i <= xTicks; i++) {
+    const t = t0 + (windowMs * i) / xTicks;
+    const x = xOf(t);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + plotH);
+    ctx.stroke();
+    const d = new Date(t);
+    const label = windowMs <= 120000
+      ? d.toLocaleTimeString("zh-CN", { hour12: false, minute: "2-digit", second: "2-digit" })
+      : d.toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit" });
+    ctx.fillText(label, x, padT + plotH + 6);
+  }
+
+  // 边框
+  ctx.strokeStyle = "#2a3544";
+  ctx.strokeRect(padL, padT, plotW, plotH);
+
+  // 曲线（min/max 抽稀）
+  const targetPx = Math.floor(plotW);
+  for (const s of series) {
+    if (!s.pts.length) continue;
+    const pts = s.pts.length > targetPx * 2 ? minMaxDecimate(s.pts, targetPx) : s.pts;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    let started = false;
+    for (const p of pts) {
+      const x = xOf(p.t);
+      const y = yOf(p.v);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // 图例
+  let lx = padL + 8;
+  const ly = 4;
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  for (const s of series.slice(0, 8)) {
+    ctx.fillStyle = s.color;
+    ctx.fillRect(lx, ly - 4, 10, 8);
+    ctx.fillStyle = "#c5d0dc";
+    ctx.fillText(s.name, lx + 14, ly);
+    lx += 14 + ctx.measureText(s.name).width + 16;
+  }
+
+  // 冻结提示
+  if (view.paused) {
+    ctx.fillStyle = "rgba(240,180,41,0.9)";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("已暂停", padL + plotW - 8, padT + 12);
+  }
+}
+
+function minMaxDecimate(pts, buckets) {
+  if (pts.length <= buckets * 2) return pts;
+  const out = [];
+  const size = pts.length / buckets;
+  for (let i = 0; i < buckets; i++) {
+    const a = Math.floor(i * size);
+    const b = Math.min(pts.length, Math.floor((i + 1) * size));
+    if (a >= b) continue;
+    let mn = pts[a], mx = pts[a];
+    for (let j = a; j < b; j++) {
+      if (pts[j].v < mn.v) mn = pts[j];
+      if (pts[j].v > mx.v) mx = pts[j];
+    }
+    if (mn.t <= mx.t) { out.push(mn, mx); }
+    else { out.push(mx, mn); }
+  }
+  return out;
+}
+
+function formatNum(v) {
+  if (!Number.isFinite(v)) return "—";
+  const a = Math.abs(v);
+  if (a >= 10000 || (a > 0 && a < 0.01)) return v.toExponential(2);
+  return v.toFixed(a < 10 ? 3 : a < 100 ? 2 : 1);
+}
+
+/* ============================================================
+ * 12. 事件绑定
+ * ============================================================ */
+function bindEvents() {
+  $("btnConnect").onclick = connectSerial;
+  $("btnDisconnect").onclick = disconnectSerial;
+
+  $("btnPollToggle").onclick = () => {
+    if (state.polling) {
+      stopPolling();
+      log("info", "停止轮询");
+    } else {
+      startPolling();
+    }
+  };
+  $("btnReadOnce").onclick = () => { readOnce().catch(() => {}); };
+
+  // 串口参数改动需重连
+  for (const id of ["selBaud", "selData", "selParity", "selStop"]) {
+    $(id).onchange = () => {
+      saveConfig();
+      if (state.connected) log("warn", "串口参数已改，断开后重新连接生效");
+    };
+  }
+  $("inpSlave").onchange = () => saveConfig();
+  for (const id of ["inpInterval", "inpTimeout", "inpRetries", "inpHistHours"]) {
+    $(id).onchange = () => saveConfig();
+  }
+
+  // 寄存器表事件（委托）—— input + change 都写入，避免 blur 前点轮询丢编辑
+  const onRegEdit = (e) => {
+    const r = regFromEvent(e);
+    if (!applyRegField(r, e)) return;
+    saveConfig();
+  };
+  $("regBody").addEventListener("change", onRegEdit);
+  $("regBody").addEventListener("input", onRegEdit);
+
+  $("regBody").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const tr = btn.closest("tr");
+    const r = regFromEvent(e);
+    if (!r) return;
+    if (btn.dataset.act === "del") {
+      state.cfg.registers = state.cfg.registers.filter((x) => x !== r);
+      renderRegisterTable();
+      saveConfig();
+      scheduleRender();
+    } else if (btn.dataset.act === "write") {
+      if (!state.connected) {
+        toast("请先连接串口");
+        return;
+      }
+      state.writeQueue.push(r);
+      if (!state.polling) {
+        (async () => {
+          while (state.writeQueue.length) {
+            const reg = state.writeQueue.shift();
+            try { await writeRegister(reg); } catch (err) { log("err", err.message); }
+          }
+          scheduleRender();
+        })();
+      }
+    }
+  });
+
+  $("btnAddRow").onclick = () => {
+    state.cfg.registers.push({
+      name: `reg${state.cfg.registers.length + 1}`,
+      slave: Number($("inpSlave").value) || 20,
+      fc: 3,
+      addr: 0,
+      type: "f32-le-words",
+      scale: 1,
+      offset: 0,
+      unit: "",
+      enabled: true,
+      _id: uid(),
+    });
+    renderRegisterTable();
+    saveConfig();
+    // 滚到底
+    $("regWrap").scrollTop = $("regWrap").scrollHeight;
+  };
+
+  $("btnClearRows").onclick = () => {
+    if (!confirm("确认清空寄存器表？")) return;
+    state.cfg.registers = [];
+    state.history.clear();
+    state.lastValues.clear();
+    renderRegisterTable();
+    saveConfig();
+    scheduleRender();
+  };
+
+  $("btnLoadPreset").onclick = () => {
+    if (state.cfg.registers.length && !confirm("将覆盖当前寄存器表，继续？")) return;
+    const off = addrFromOneEnabled() ? 1 : 0;
+    state.cfg.registers = ST605_PRESET.map((r) => ({
+      ...r,
+      addr: r.addr + off,
+      _id: uid(),
+    }));
+    $("inpSlave").value = "20";
+    $("selBaud").value = "9600";
+    $("selParity").value = "even";
+    $("selStop").value = "1";
+    renderRegisterTable();
+    saveConfig();
+    // 默认勾选视图通道
+    const names = ST605_PRESET.filter((r) => r.enabled).map((r) => r.name);
+    if (state.cfg.views[1]) state.cfg.views[1].channels = names.filter((n) => ["temperature1", "temperature2", "tecPowerNow"].includes(n));
+    if (state.cfg.views[2]) state.cfg.views[2].channels = state.cfg.views[1].channels.slice();
+    if (state.cfg.views[3]) state.cfg.views[3].channels = ["slope", "intercept", "measureRange"];
+    renderViews();
+    saveConfig();
+    toast("已载入 ST-605 预设");
+    log("info", `ST-605 预设 ${ST605_PRESET.length} 行（PDU 地址）`);
+  };
+
+  $("btnCsvExport").onclick = exportCsv;
+  $("btnCsvImport").onclick = () => $("fileCsv").click();
+  $("fileCsv").onchange = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const text = await f.text();
+    importCsvText(text);
+    e.target.value = "";
+  };
+
+  $("chkAddrFromOne").onchange = () => {
+    const on = addrFromOneEnabled();
+    // 切换时换算表内地址，保持线上 PDU 不变
+    for (const r of state.cfg.registers) {
+      const a = Number(r.addr) | 0;
+      r.addr = on ? a + 1 : a - 1;
+    }
+    updateAddrHeader();
+    renderRegisterTable();
+    saveConfig();
+    log("info", on ? "地址改为从 1 起（发帧时减 1）" : "地址改为从 0 起（PDU 直传）");
+    scheduleRender();
+  };
+
+  $("btnExportData").onclick = exportDataCsv;
+  $("btnExportJson").onclick = exportJson;
+  $("btnImportJson").onclick = () => $("fileJson").click();
+  $("fileJson").onchange = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const text = await f.text();
+    importJsonText(text);
+    e.target.value = "";
+  };
+
+  $("btnResetCfg").onclick = () => {
+    if (!confirm("恢复默认配置？将清空表与视图。")) return;
+    stopPolling();
+    state.cfg = defaultConfig();
+    state.history.clear();
+    state.lastValues.clear();
+    applyConfig(state.cfg);
+    localStorage.removeItem(STORAGE_KEY);
+    saveConfig();
+    toast("已恢复默认");
+  };
+
+  $("selLayout").onchange = (e) => setViewCount(e.target.value);
+  $("btnAddView").onclick = addView;
+
+  $("viewGrid").addEventListener("change", (e) => {
+    const viewEl = e.target.closest(".view");
+    if (!viewEl) return;
+    const v = state.cfg.views.find((x) => String(x.id) === viewEl.dataset.vid);
+    if (!v) return;
+    const f = e.target.dataset.vf;
+    if (!f) return;
+    if (f === "title") v.title = e.target.value;
+    else if (f === "mode") {
+      v.mode = e.target.value;
+      renderViews();
+    } else if (f === "timeWindowSec") v.timeWindowSec = Number(e.target.value) || 300;
+    else if (f === "autoScale") {
+      v.autoScale = e.target.checked;
+      renderViews();
+    } else if (f === "yMin") v.yMin = e.target.value === "" ? null : Number(e.target.value);
+    else if (f === "yMax") v.yMax = e.target.value === "" ? null : Number(e.target.value);
+    saveConfig();
+    scheduleRender();
+  });
+
+  $("viewGrid").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-vact]");
+    if (!btn) return;
+    const viewEl = btn.closest(".view");
+    const v = state.cfg.views.find((x) => String(x.id) === viewEl.dataset.vid);
+    if (!v) return;
+    const act = btn.dataset.vact;
+    if (act === "channels") openChannelPopup(v, btn);
+    else if (act === "pause") {
+      v.paused = !v.paused;
+      btn.textContent = v.paused ? "继续" : "暂停";
+      saveConfig();
+      scheduleRender();
+    } else if (act === "clear") {
+      for (const n of v.channels || []) {
+        // 仅清显示层：重绘即可；真正清历史不做（后台仍采样）
+      }
+      // 对本窗：临时通过缩小时间窗实现？按设计「仅该窗显示层」——提供清空绘制用的视图本地缓存
+      v._clearAt = nowMs();
+      toast("已清空本窗显示（历史仍在后台采样）");
+      scheduleRender();
+    } else if (act === "remove") {
+      state.cfg.views = state.cfg.views.filter((x) => x.id !== v.id);
+      renderViews();
+      saveConfig();
+    }
+  });
+
+  $("btnClearLog").onclick = () => { $("logBody").innerHTML = ""; };
+  $("btnToggleLog").onclick = () => {
+    const p = $("logPanel");
+    p.classList.toggle("collapsed");
+    $("btnToggleLog").textContent = p.classList.contains("collapsed") ? "展开" : "折叠";
+  };
+
+  // 快捷键
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input,textarea,select")) return;
+    if (e.key === "r" || e.key === "R") {
+      if (e.ctrlKey || e.metaKey) return;
+      readOnce().catch(() => {});
+    } else if (e.key === "p" || e.key === "P") {
+      $("btnPollToggle").click();
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    saveConfig();
+  });
+
+  // 持续刷新曲线（即使无新数据也滚动时间轴）
+  setInterval(() => {
+    if (state.polling || state.history.size) scheduleRender();
+  }, 500);
+}
+
+/* ============================================================
+ * 13. 启动
+ * ============================================================ */
+function init() {
+  bindEvents();
+  const restored = loadConfig();
+  if (!restored) {
+    applyConfig(defaultConfig());
+  }
+  if (!state.cfg.registers.length) {
+    // 空表也可直接点预设
+    log("info", "就绪。可载入 ST-605 预设，或手动添加寄存器。");
+  } else {
+    log("info", `已恢复配置：${state.cfg.registers.length} 个寄存器`);
+  }
+  if (!("serial" in navigator)) {
+    setStatus("err", "无 Web Serial");
+    log("warn", "当前环境无 Web Serial API。功能需 Chrome/Edge + HTTPS/localhost/file://。");
+  } else {
+    log("info", "Web Serial 可用。默认 9600 8E1，从站 20。");
+  }
+  updateAddrHeader();
+  // 初始绘制
+  scheduleRender();
+}
+
+init();
+</script>
+</body>
+</html>
