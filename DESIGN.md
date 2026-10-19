@@ -1,9 +1,9 @@
 # Modbus RTU 上位机 · 设计与实现文档
 
 > 项目目录：`serialWebTest01`  
-> 形态：单文件网页上位机（`webSerial_v02_boZhu.html`），Chromium + Web Serial API  
+> 形态：单文件网页上位机（`webSerial_v03_boZhu.html`），Chromium + Web Serial API
 > 目标设备：Pyxis ST-605 等 RS485 Modbus RTU 从站  
-> 状态：已实现（S1–S8）。交付物：`webSerial_v02_boZhu.html`、`st605-registers.csv`、`README.md`  
+> 状态：已实现（S1–S8）。交付物：`webSerial_v03_boZhu.html`、`st605-registers.csv`、`README.md`
 > 命名：`webSerial_vXX_boZhu.html`，`XX` = `git rev-list --count HEAD`（两位补零）
 
 ---
@@ -74,7 +74,7 @@
 ### 3.2 地址约定（易错）
 
 - 文档/面板上的「表地址」如 **48001** 对应 **PDU 地址 48000**（差 1）
-- **本上位机 CSV / 预设中的 `addr` 一律填 PDU 地址**（发帧字节里用的那个），与 `regmap.csv` 一致
+- **本上位机 CSV / 预设中的 `addr` 一律填 PDU 地址**（发帧字节里用的那个），以当前 `regmap.h` 为准
 - UI 勾选「地址从 1 起」后，表内显示/编辑的是表地址，组帧时自动减 1
 - 不要按「4xxxx 引用号减 40001」再偏移一次
 
@@ -87,15 +87,15 @@
 
 ### 3.4 内置 ST-605 寄存器预设（节选）
 
-完整列表以 `regmap.csv` / `st605-registers.csv` 为准，预设写入时使用 PDU 地址。
+完整列表以当前固件 `regmap.h` / 生成的 `st605-registers.csv` 为准，预设写入时使用 PDU 地址。
 
 **测量读值（FC03）**
 
 | name | addr (PDU) | type | 单位/说明 |
 |------|------------|------|-----------|
-| tecPowerNow | 46000 | f32 | TEC 功率相关 |
-| temperature1 | 46002 | f32 | 温度 1 |
-| temperature2 | 46004 | f32 | 温度 2 |
+| sensorValue | 46000 | f32 | 浓度测量值 |
+| sensorValue_mA | 46002 | f32 | 电流输出（mA） |
+| temperatureValue | 46004 | f32 | 温度（℃） |
 
 **状态（FC03）**
 

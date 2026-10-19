@@ -1,8 +1,8 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 
-const htmlPath = path.join(__dirname, "webSerial_v02_boZhu.html");
+const htmlPath = path.join(__dirname, "webSerial_v03_boZhu.html");
 const html = fs.readFileSync(htmlPath, "utf8");
 const start = html.indexOf("<script>");
 const end = html.lastIndexOf("</script>");

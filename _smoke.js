@@ -1,4 +1,4 @@
-﻿const path = require("path");
+const path = require("path");
 const { chromium } = require("playwright-core");
 
 (async () => {
@@ -8,7 +8,7 @@ const { chromium } = require("playwright-core");
   page.on("console", (msg) => {
     if (msg.type() === "error") console.error("CONSOLE", msg.text());
   });
-  await page.goto("http://127.0.0.1:8765/webSerial_v02_boZhu.html", { waitUntil: "networkidle" });
+  await page.goto("http://127.0.0.1:8765/webSerial_v03_boZhu.html", { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
 
   // basic UI presence

@@ -1,8 +1,8 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 
-const html = fs.readFileSync(path.join(__dirname, "webSerial_v02_boZhu.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "webSerial_v03_boZhu.html"), "utf8");
 const start = html.indexOf("<script>");
 const end = html.lastIndexOf("</script>");
 const js = html.slice(start + 8, end);
@@ -149,6 +149,47 @@ function assert(cond, msg) {
   }
   console.log("OK", msg);
 }
+
+// Exercise the real preset button, including persisted state and address conversion.
+const preset = vm.runInContext("ST605_PRESET", sandbox);
+const presetState = sandbox.__mbState;
+const csvLines = fs.readFileSync(path.join(__dirname, "st605-registers.csv"), "utf8")
+  .replace(/^\uFEFF/, "").trim().split(/\r?\n/);
+assert(csvLines.length === preset.length + 1, "preset and CSV row count");
+for (const [i, row] of preset.entries()) {
+  const cells = csvLines[i + 1].split(",");
+  assert(cells.join(",") === [row.name, row.slave, row.fc, row.addr, row.type,
+    row.scale, row.offset, row.unit, Number(row.enabled)].join(","), "CSV matches " + row.name);
+}
+for (const fromOne of [false, true]) {
+  el("chkAddrFromOne").checked = fromOne;
+  el("selData").value = "7";
+  presetState.history.set("temperature1", [{ t: 1, v: 99 }]);
+  presetState.lastValues.set("temperature1", { value: 99 });
+  presetState.cfg.views.forEach((v) => { v.channels = ["temperature1"]; });
+  el("btnLoadPreset").onclick();
+  assert(presetState.history.size === 0 && presetState.lastValues.size === 0, "preset clears stale data");
+  assert(el("selData").value === "8" && el("selBaud").value === "9600" &&
+    el("selParity").value === "even" && el("selStop").value === "1" &&
+    el("inpSlave").value === "20", "preset restores 20 / 9600 / 8E1");
+  for (const [name, addr, type] of [
+    ["sensorValue", 46000, "f32-le-words"], ["temperatureValue", 46004, "f32-le-words"],
+    ["refError365", 46016, "u32"], ["temperatureAgeMs", 46044, "u32"],
+    ["ct365", 48016, "u16"], ["t365", 48052, "f32-le-words"],
+  ]) {
+    const reg = presetState.cfg.registers.find((r) => r.name === name);
+    assert(reg && sandbox.toPduAddr(reg.addr) === addr && reg.type === type,
+      "preset wire address/type " + name + " fromOne=" + fromOne);
+  }
+  const activeNames = new Set(preset.filter((r) => r.enabled).map((r) => r.name));
+  assert(presetState.cfg.views.every((v) => v.channels.length && v.channels.every((n) => activeNames.has(n))),
+    "all preset views reference current enabled fields");
+  assert(presetState.cfg.views[1].channels.join(",") === "sensorValue,temperatureValue", "default measurement curves");
+  const saved = sandbox.collectConfig();
+  assert(saved.serial.dataBits === 8 && saved.views[1].channels.includes("sensorValue"), "preset config persists");
+}
+el("chkAddrFromOne").checked = false;
+presetState.cfg = sandbox.defaultConfig();
 
 // CRC
 const framed = sandbox.appendCrc(Uint8Array.from([0x01, 0x03, 0x00, 0x00, 0x00, 0x0a]));

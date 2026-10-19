@@ -1,6 +1,6 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
-const html = fs.readFileSync(path.join(__dirname, "webSerial_v02_boZhu.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "webSerial_v03_boZhu.html"), "utf8");
 
 // All getElementById targets used in the script
 const idRefs = new Set();
@@ -45,7 +45,7 @@ console.log("NO_EXTERNAL_DEPS");
 
 // CSV exists and parses
 const csv = fs.readFileSync(path.join(__dirname, "st605-registers.csv"), "utf8");
-const lines = csv.trim().split(/\r?\n/);
+const lines = csv.replace(/^\uFEFF/, "").trim().split(/\r?\n/);
 if (lines[0] !== "name,slave,fc,addr,type,scale,offset,unit,enabled") {
   console.error("CSV_HEADER", lines[0]);
   process.exit(1);

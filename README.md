@@ -1,6 +1,6 @@
 # serialWebTest01 · Modbus RTU 上位机
 
-单文件网页上位机（`webSerial_v02_boZhu.html`），基于 **Web Serial API**，面向 Pyxis **ST-605** 等 RS485 Modbus RTU 从站。
+单文件网页上位机（`webSerial_v03_boZhu.html`），基于 **Web Serial API**，面向 Pyxis **ST-605** 等 RS485 Modbus RTU 从站。
 
 设计文档见 [DESIGN.md](./DESIGN.md)。
 
@@ -29,7 +29,7 @@
 
 ## 快速开始
 
-1. 双击打开 `webSerial_v02_boZhu.html`（或任意静态服务器）。
+1. 双击打开 `webSerial_v03_boZhu.html`（或任意静态服务器）。
 2. 点 **「ST-605 预设」** 载入默认寄存器表（PDU 地址）。
 3. 按需勾选 **「地址从 1 起」**：勾选后表内按文档/表地址填写（如 48001），发帧自动减 1；不勾选则填 PDU 地址（如 48000）。
 4. 点 **「连接串口」**，选择 COM 口；参数保持默认 9600 / 8 / E / 1。
@@ -128,7 +128,24 @@ slope,20,3,48000,f32-le-words,1,0,,1
 
 | 文件 | 说明 |
 |------|------|
-| `webSerial_v02_boZhu.html` | 应用本体（`XX` = git 提交次数） |
+| `webSerial_v03_boZhu.html` | 应用本体（`XX` = git 提交次数） |
 | `st605-registers.csv` | ST-605 默认寄存器表 |
 | `DESIGN.md` | 设计、协议约定、验证清单 |
 | `README.md` | 本说明 |
+
+### 更新 ST-605 预设
+
+`_gen_preset.py` 从当前固件 `Middlewares/autoRegmap/regmap.h` 读取字段、表地址和类型，生成网页内置预设和 `st605-registers.csv`。旧 `regmap.csv` 的 46xxx 字段已过期，不应作为来源。地址统一转成 PDU（表地址减 1），32 位值低字在前。
+
+```powershell
+python _gen_preset.py --regmap "当前固件目录/Middlewares/autoRegmap/regmap.h"
+python _gen_preset.py --regmap "当前固件目录/Middlewares/autoRegmap/regmap.h" --check
+```
+
+页面载入预设后，默认曲线显示 `sensorValue` 和 `temperatureValue`，清除旧读值和历史，并恢复 20 / 9600 / 8E1。已有浏览器配置需要重新点击「ST-605 预设」才会更新。
+
+### v03 · 2026-10-19
+
+- 按当前固件定义同步 78 项 ST-605 寄存器预设，新增可重复生成及一致性检查。
+- 修复默认曲线通道、旧数据清理和 8E1 参数恢复。
+- 左上角显示作者Bo、版本号与北京时间更新时间。
